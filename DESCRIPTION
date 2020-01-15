@@ -1,16 +1,11 @@
 Package: Hsp90DFE
 Type: Package
-Title: Compendium for MLE of DFE from FGM in Hsp90
-Version: 0.0.0.9000
-Author@R: person("Yoann", "Anciaux", email = "yoann.anciaux@birc.au.dk",
-  role = c("aut", "cre"))
-Maintainer@R: person("Yoann", "Anciaux", email = "yoann.anciaux@birc.au.dk",
-  role = c("aut", "cre"))
-Description: Compendium of the results for the inference of DFE from FGM on single
-    mutations data in Hsp90.
-License: MIT + file LICENSE
+Title: What the Package Does (Title Case)
+Version: 0.1.0
+Author: Who wrote it
+Maintainer: The package maintainer <yourself@somewhere.net>
+Description: More about what it does (maybe more than one line)
+    Use four spaces when indenting paragraphs within the Description.
+License: What license is it under?
 Encoding: UTF-8
 LazyData: true
-Suggests: 
-    testthat (>= 2.1.0)
-RoxygenNote: 7.0.0
