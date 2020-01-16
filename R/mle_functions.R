@@ -1,0 +1,158 @@
+#' MLE on the DFE for FGM
+#'
+#' Maximum likelihood estimation (mle) for the parameters of the DFE density for
+#' different form of the FGM.
+#'
+#' @inheritParams dfgm_martin
+#' @param model String. "Martin" performs the mle on the density of the DFE from
+#' Martin & Lenormand (2015) (see \code{\link{dfgm_martin}}). "Tenaillon" performs
+#' the mle on the density of the DFE from Tenaillon (2014) (see \code{\link{dfgm_tenaillon}}).
+#' Default "Martin".
+#' @param start Numeric vector (named). Used as starting values in \code{\link{maxLik}{maxLik}}.
+#' It must contains the parameters for the chosen \code{model}:
+#' \itemize{
+#'   \item{"Martin"}{ c(n = #, lambda = #, so = #)}
+#'   \item{"Tenaillon"}{ c(n = #, lambda = #, so = #, alpha = #, Q = #)}
+#' }
+#' @param method String. Maximisation method. See \code{\link{maxLik}{maxLik}}.
+#' Default "NM".
+#' @param ... See \code{\link{maxLik}{maxLik}} all the possible parameters
+#'
+#' @return Returns a list of 2 elements. First element \code{mle} is the output of
+#' \code{\link[maxLik]{maxLik}}. The second element \code{dist_estim} is a tibble
+#' of the discretized density with the estimated parameter, for 100 values in the
+#' range corresponding to \code{s}.
+#'
+#' @seealso \code{\link{dfgm_martin}}, \code{\link{dfgm_tenaillon}},
+#' \code{\link{maxLik}{maxLik}}.
+#'
+#' @examples
+#' #### model : "Martin" ####
+#' # Parameters
+#' nsample <- 1000; n <- 4; lambda <- 0.5; so <- 1; alpha <- 1/2; Q <- 2;
+#' # Simulated data
+#' s <- rfgm(nsample, n, lambda, so, alpha, Q)
+#' # Noise on initial parameters
+#' initial_parameter <- c(n = ceiling(abs(rnorm(1, n))),
+#'                        lambda = abs(rnorm(1, lambda, sd = 0.1)),
+#'                        so = abs(rnorm(1, n)))
+#' # Constraints on parameters (not applioed for all methods see maxLik in maxLik package)
+#' consA <- rbind(c(1, 0, 0),
+#'                c(0, 1, 0),
+#'                c(0, 0, 1))
+#' consB <- c(0, 0, -max(s))
+#' # MLE
+#' res <- mle_dfgm(s, model = "Martin", start = initial_parameter,
+#'                 method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+#' # Plot
+#' ggplot2::ggplot() +
+#'   ggplot2::geom_density(aes(x = s)) +
+#'   ggplot2::geom_line(aes(x = res$dist_estim$s, y = res$dist_estim$density), color = "red")
+#'
+#' #### model : "Tenaillon" ####
+#' # Parameters
+#' nsample <- 1000; n <- 4; lambda <- 0.5; so <- 1; alpha <- 1/2; Q <- 2;
+#' # Simulated data
+#' s <- rfgm(nsample, n, lambda, so, alpha, Q)
+#' # Noise on initial parameters
+#' initial_parameter <- c(n = ceiling(abs(rnorm(1, n))),
+#'                        lambda = abs(rnorm(1, lambda, sd = 0.1)),
+#'                        so = abs(rnorm(1, n)),
+#'                        alpha = alpha,
+#'                        Q = abs(rnorm(1, Q)))
+#' # Constraints on parameters (not applioed for all methods see maxLik in maxLik package)
+#' consA <- rbind(c(1, 0, 0, 0, 0),
+#'                c(0, 1, 0, 0, 0),
+#'                c(0, 0, 1, 0, 0),
+#'                c(0, 0, 0, 1, 0),
+#'                c(0, 0, 0, 0, 1))
+#' consB <- c(0, 0, -max(s), 0, 0)
+#' # MLE
+#' res <- mle_dfgm(s, model = "Tenaillon", start = initial_parameter,
+#'                 method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+#' # Plot
+#' ggplot2::ggplot() +
+#'   ggplot2::geom_density(aes(x = s)) +
+#'   ggplot2::geom_line(aes(x = res$dist_estim$s, y = res$dist_estim$density), color = "red")
+#'
+#' @source
+#' \itemize{
+#'   \item Tenaillon, O. (2014). The utility of Fisher's geometric model in
+#'   evolutionary genetics. Annual review of ecology, evolution, and systematics,
+#'   45, 179-201.
+#'   \item Martin, G., & Lenormand, T. (2015). The fitness effect of mutations
+#'   across environments: Fisher's geometrical model with multiple optima.
+#'   Evolution, 69(6), 1433-1447.
+#'  }
+#'
+#' @export
+mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
+  # Log-Likelihood for the model "Tenaillon"
+  if (model == "Martin") {
+    checkmate::assert_names(names(start), permutation.of = c("n", "lambda", "so"))
+    start <- start[c("n", "lambda", "so")]
+    loglik <- function(param) {
+      n <- param[1]
+      lambda <- param[2]
+      so <- param[3]
+      ll <- sum(log(dfgm_martin(s, n, lambda, so)))
+    }
+  }
+  # Log-Likelihood for the model "Tenaillon"
+  if (model == "Tenaillon") {
+    checkmate::assert_names(names(start), permutation.of = c("n", "lambda", "so", "alpha", "Q"))
+    start <- start[c("n", "lambda", "so", "alpha", "Q")]
+    loglik <- function(param) {
+      n <- param[1]
+      lambda <- param[2]
+      so <- param[3]
+      alpha <- param[4]
+      Q <- param[5]
+      ll <- sum(log(dfgm_tenaillon(s, n, lambda, so, alpha, Q)))
+    }
+  }
+
+  # MLE
+  ml <- maxLik::maxLik(loglik, start = start, ...)
+
+  # Sample the density with estimated parameters to be used in a plot
+  grid <- seq(min(s), max(s), length = 100)
+  if (model == "Martin") {
+    sample_dist_estim <- dplyr::tibble(s = grid,
+                                       density = dfgm_martin(grid, ml$estimate[1], ml$estimate[2], ml$estimate[3]))
+  }
+  if (model == "Tenaillon") {
+    sample_dist_estim <- dplyr::tibble(s = grid,
+                                       density = dfgm_tenaillon(grid, ml$estimate[1], ml$estimate[2], ml$estimate[3], ml$estimate[4], ml$estimate[5]))
+  }
+
+  # Output
+  list(mle = ml,
+       dist_estim = sample_dist_estim)
+
+  #TODO Add a class which can be used in a plot function
+}
+
+rfgm <- function(nsample, n, lambda, so, alpha, Q) {
+
+  # Arguments
+  coll <- checkmate::makeAssertCollection()
+  checkmate::assert_numeric(s, finite = T, any.missing = F, null.ok = F,
+                            add = coll)
+  checkmate::assert_count(n, na.ok = F, positive = T, null.ok = F, add = coll)
+  checkmate::assert_number(lambda, na.ok = F, lower = .Machine$double.eps,
+                           finite = T, null.ok = F, add = coll)
+  checkmate::assert_number(so, na.ok = F, finite = T, null.ok = F,
+                           add = coll)
+  checkmate::assert_number(alpha, na.ok = F, lower = .Machine$double.eps,
+                           finite = T, null.ok = F, add = coll)
+  checkmate::assert_number(Q, na.ok = F, lower = .Machine$double.eps,
+                           finite = T, null.ok = F, add = coll)
+  checkmate::reportAssertions(coll)
+
+  # Selection coefficients
+  pheno_optium <- matrix(c((so / alpha)^(1/Q), numeric(n - 1)), nrow = nsample,
+                         ncol = n, byrow = T)
+  pheno_mutation <- MASS::mvrnorm(n = nsample, mu = numeric(n), Sigma = lambda * diag(1, n, n))
+  so - alpha * apply(pheno_optium - pheno_mutation, 1, function(x) sqrt(sum(x^2))^Q)
+}
