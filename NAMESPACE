@@ -3,3 +3,4 @@
 export(dfgm_martin)
 export(dfgm_tenaillon)
 export(mle_dfgm)
+export(rfgm)

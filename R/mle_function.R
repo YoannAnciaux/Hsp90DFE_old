@@ -133,6 +133,33 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
   #TODO Add a class which can be used in a plot function
 }
 
+#' Random generation of selection coefficient under FGM
+#'
+#' Generates selection coefficients of random mutations. First, the phenotype are
+#' drawn from a multinormal distribution with means : 0, variances : lambda, and
+#' covariances : 0. Second the coefficient of selections of these phenotypes are
+#' computed using Fisher's Geometric Model (see Tenaillon (2014), Martin & Lenormand
+#' (2015)).
+#'
+#' @param nsample Real number. Number of mutations to draw.
+#' @inheritParams dfgm_tenaillon
+#'
+#' @return Vector of selection coefficients of length \code{nsample}.
+#'
+#' @examples
+#' rfgm(10, 2, 0.1, 1, 1/2, 2)
+#'
+#' @source
+#' \itemize{
+#'   \item Tenaillon, O. (2014). The utility of Fisher's geometric model in
+#'   evolutionary genetics. Annual review of ecology, evolution, and systematics,
+#'   45, 179-201.
+#'   \item Martin, G., & Lenormand, T. (2015). The fitness effect of mutations
+#'   across environments: Fisher's geometrical model with multiple optima.
+#'   Evolution, 69(6), 1433-1447.
+#'  }
+#'
+#' @export
 rfgm <- function(nsample, n, lambda, so, alpha, Q) {
 
   # Arguments
