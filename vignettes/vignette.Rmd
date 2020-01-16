@@ -1,0 +1,85 @@
+---
+title: "vignette"
+output: rmarkdown::html_vignette
+vignette: >
+%\VignetteIndexEntry{vignette}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+  
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+  
+```{r setup}
+knitr::opts_chunk$set(warning = FALSE, message = FALSE)
+library(Hsp90DFE)
+library(tidyverse)
+library(parallel)
+```
+
+```{r data}
+nenv <- 8
+parameters_sim <- data.frame(nsample = rep(2000, nenv),
+                             n = rgeom(nenv, 0.5) + 1,
+                             lambda = rexp(nenv, 5),
+                             so = lambda * (rgeom(nenv, 0.2) + 2),
+                             alpha = rep(1/2, nenv),
+                             Q = rep(2, nenv))
+parameters_sim <- asplit(parameters_sim, 1)
+names(parameters_sim) <- as.character(1:nenv)
+
+simulations <- as_tibble(lapply(parameters_sim,
+                                function(e) as.vector(do.call("rfgm", as.list(e))))) %>%
+  pivot_longer(everything(), names_to = "environment", values_to = "s")
+data <- simulations
+```
+
+```{r data representation}
+ggplot(data, aes(x = s, color = environment)) +
+  geom_density() +
+  xlab("selection coefficient")
+```
+
+```{r MLE FGM Martin}
+mle <- data %>%
+  group_by(environment) %>%
+  group_split() %>%
+  mclapply(X = .,
+           FUN = function(e) {
+             s <- e$s
+             # Starting parameters
+             initial_parameter <- c(n = 2,
+                                    lambda = 2 * abs(mean(s)) / 2,
+                                    so = 2 * max(s))
+             # Constraints on parameters
+             consA <- rbind(c(1, 0, 0),
+                            c(0, 1, 0),
+                            c(0, 0, 1))
+             consB <- c(0, 0, -max(s))
+             # MLE
+             res <- mle_dfgm(s, model = "Martin", start = initial_parameter,
+                      method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+             list(mle = res$mle,
+                  dist_estim = bind_cols(list(environment = rep(1, 100)),
+                                         mle[[8]]$dist_estim))},
+           mc.cores = 7)
+```
+
+```{r Figure MLE FGM Martin}
+tbl_param <- sapply(mle, FUN = function(e) {e$mle}, simplify = F)
+tbl_dist_estim <- sapply(mle, FUN = function(e) {e$dist_estim}, simplify = F) %>%
+  bind_rows()
+
+ggplot(data, aes(x = s)) +
+  geom_density() +
+  geom_line(aes(x = s, y = density), data = tbl_dist_estim, color = "red") +
+  facet_wrap(~ environment, scales = "free")
+
+#TODO Comprendre pourquoi les densités affichées c'est de la merde .
+
+```
+
