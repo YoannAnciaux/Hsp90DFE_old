@@ -164,8 +164,7 @@ rfgm <- function(nsample, n, lambda, so, alpha, Q) {
 
   # Arguments
   coll <- checkmate::makeAssertCollection()
-  checkmate::assert_numeric(s, finite = T, any.missing = F, null.ok = F,
-                            add = coll)
+  checkmate::assert_count(nsample, na.ok = F, positive = T, null.ok = F, add = coll)
   checkmate::assert_count(n, na.ok = F, positive = T, null.ok = F, add = coll)
   checkmate::assert_number(lambda, na.ok = F, lower = .Machine$double.eps,
                            finite = T, null.ok = F, add = coll)
