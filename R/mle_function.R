@@ -76,6 +76,15 @@
 #'
 #' @export
 mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
+
+  coll <- checkmate::makeAssertCollection()
+  checkmate::assert_numeric(s, finite = T, any.missing = F, null.ok = F, add = coll)
+  checkmate::assert_subset(model, choices = c("Martin", "Tenaillon"), empty.ok = F,
+                           add = coll)
+  checkmate::assert_vector(start, strict = T, any.missing = F, min.len = 3, max.len = 5,
+               unique = T, names = "named", null.ok = F, add = coll)
+  checkmate::reportAssertions(coll)
+
   # Log-Likelihood for the model "Tenaillon"
   if (model == "Martin") {
     checkmate::assert_names(names(start), permutation.of = c("n", "lambda", "so"))
@@ -102,7 +111,7 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
   }
 
   # MLE
-  maxLik::maxLik(loglik, start = start, ...)
+  maxLik::maxLik(loglik, start = start, method = method, ...)
 }
 
 #' Random generation of selection coefficient under FGM
