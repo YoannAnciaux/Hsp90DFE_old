@@ -18,10 +18,7 @@
 #' Default "NM".
 #' @param ... See \code{\link{maxLik}{maxLik}} all the possible parameters
 #'
-#' @return Returns a list of 2 elements. First element \code{mle} is the output of
-#' \code{\link[maxLik]{maxLik}}. The second element \code{dist_estim} is a tibble
-#' of the discretized density with the estimated parameter, for 100 values in the
-#' range corresponding to \code{s}.
+#' @return Returns the output of \code{\link[maxLik]{maxLik}} for the chosen model.
 #'
 #' @seealso \code{\link{dfgm_martin}}, \code{\link{dfgm_tenaillon}},
 #' \code{\link{maxLik}{maxLik}}.
@@ -44,10 +41,6 @@
 #' # MLE
 #' res <- mle_dfgm(s, model = "Martin", start = initial_parameter,
 #'                 method = "NM", constraints = list(ineqA = consA, ineqB = consB))
-#' # Plot
-#' ggplot2::ggplot() +
-#'   ggplot2::geom_density(aes(x = s)) +
-#'   ggplot2::geom_line(aes(x = res$dist_estim$s, y = res$dist_estim$density), color = "red")
 #'
 #' #### model : "Tenaillon" ####
 #' # Parameters
@@ -70,10 +63,6 @@
 #' # MLE
 #' res <- mle_dfgm(s, model = "Tenaillon", start = initial_parameter,
 #'                 method = "NM", constraints = list(ineqA = consA, ineqB = consB))
-#' # Plot
-#' ggplot2::ggplot() +
-#'   ggplot2::geom_density(aes(x = s)) +
-#'   ggplot2::geom_line(aes(x = res$dist_estim$s, y = res$dist_estim$density), color = "red")
 #'
 #' @source
 #' \itemize{
@@ -113,24 +102,7 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
   }
 
   # MLE
-  ml <- maxLik::maxLik(loglik, start = start, ...)
-
-  # Sample the density with estimated parameters to be used in a plot
-  grid <- seq(min(s), max(s), length = 100)
-  if (model == "Martin") {
-    sample_dist_estim <- dplyr::tibble(s = grid,
-                                       density = dfgm_martin(grid, ml$estimate[1], ml$estimate[2], ml$estimate[3]))
-  }
-  if (model == "Tenaillon") {
-    sample_dist_estim <- dplyr::tibble(s = grid,
-                                       density = dfgm_tenaillon(grid, ml$estimate[1], ml$estimate[2], ml$estimate[3], ml$estimate[4], ml$estimate[5]))
-  }
-
-  # Output
-  list(mle = ml,
-       dist_estim = sample_dist_estim)
-
-  #TODO Add a class which can be used in a plot function
+  maxLik::maxLik(loglik, start = start, ...)
 }
 
 #' Random generation of selection coefficient under FGM
