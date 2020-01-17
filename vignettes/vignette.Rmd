@@ -21,30 +21,39 @@ library(tidyverse)
 library(parallel)
 ```
 
-```{r data}
-nenv <- 8
-parameters_sim <- data.frame(nsample = rep(2000, nenv),
-                             n = rgeom(nenv, 0.5) + 1,
-                             lambda = rexp(nenv, 5),
-                             so = lambda * (rgeom(nenv, 0.2) + 2),
-                             alpha = rep(1/2, nenv),
-                             Q = rep(2, nenv))
-parameters_sim <- asplit(parameters_sim, 1)
-names(parameters_sim) <- as.character(1:nenv)
+# ```{r simulated data}
+# nenv <- 8
+# lambda <- rexp(nenv, 5)
+# parameters_sim <- data.frame(nsample = rep(2000, nenv),
+#                              n = rgeom(nenv, 0.5) + 2,
+#                              lambda = lambda,
+#                              so = lambda * (rgeom(nenv, 0.2) + 2),
+#                              alpha = rep(1/2, nenv),
+#                              Q = rep(2, nenv))
+# parameters_sim <- asplit(parameters_sim, 1)
+# names(parameters_sim) <- as.character(1:nenv)
+# 
+# simulations <- as_tibble(lapply(parameters_sim,
+#                                 function(e) as.vector(do.call("rfgm", as.list(e))))) %>%
+#   pivot_longer(everything(), names_to = "environment", values_to = "s")
+# data <- simulations
+# ```
 
-simulations <- as_tibble(lapply(parameters_sim,
-                                function(e) as.vector(do.call("rfgm", as.list(e))))) %>%
-  pivot_longer(everything(), names_to = "environment", values_to = "s")
-data <- simulations
+```{r}
+data("summary_data")
+data <- summary_data %>%
+  unite(col = "environment", c("Environment", "Expression_level")) %>%
+  rename(s = mean_s, sd = mean_sd)
 ```
+
 
 ```{r data representation}
 ggplot(data, aes(x = s, color = environment)) +
   geom_density() +
   xlab("selection coefficient")
 ```
-
-```{r MLE FGM Martin}
+# MLE FGM Martin
+```{r MLE FGM Martin (Standard)}
 mle <- data %>%
   group_by(environment) %>%
   group_split() %>%
@@ -62,24 +71,141 @@ mle <- data %>%
              consB <- c(0, 0, -max(s))
              # MLE
              res <- mle_dfgm(s, model = "Martin", start = initial_parameter,
-                      method = "NM", constraints = list(ineqA = consA, ineqB = consB))
-             list(mle = res$mle,
-                  dist_estim = bind_cols(list(environment = rep(1, 100)),
-                                         mle[[8]]$dist_estim))},
-           mc.cores = 7)
+                             method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+             grid <- seq(min(s), max(s), length = 100)
+             list(mle = res,
+                  dist_estim = tibble(environment = rep(e$environment[1], length(grid)),
+                                      s = grid,
+                                      density = dfgm_martin(grid, res$estimate[1], res$estimate[2], res$estimate[3])))
+           }, mc.cores = 7)
+
+mle_subset <- data %>%
+  group_by(environment) %>%
+  group_split() %>%
+  mclapply(X = .,
+           FUN = function(e) {
+             s <- e$s[which(e$s > quantile(e$s, 0.15))]
+             # Starting parameters
+             initial_parameter <- c(n = 2,
+                                    lambda = 2 * abs(mean(s)) / 2,
+                                    so = 2 * max(s))
+             # Constraints on parameters
+             consA <- rbind(c(1, 0, 0),
+                            c(0, 1, 0),
+                            c(0, 0, 1))
+             consB <- c(0, 0, -max(s))
+             # MLE
+             res <- mle_dfgm(s, model = "Martin", start = initial_parameter,
+                             method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+             grid <- seq(min(s), max(s), length = 100)
+             list(mle = res,
+                  dist_estim = tibble(environment = rep(e$environment[1], length(grid)),
+                                      s = grid,
+                                      density = dfgm_martin(grid, res$estimate[1], res$estimate[2], res$estimate[3])))
+           }, mc.cores = 7)
 ```
 
-```{r Figure MLE FGM Martin}
+```{r Figure MLE FGM Martin (Standard)}
 tbl_param <- sapply(mle, FUN = function(e) {e$mle}, simplify = F)
 tbl_dist_estim <- sapply(mle, FUN = function(e) {e$dist_estim}, simplify = F) %>%
+  bind_rows()
+tbl_param_subset <- sapply(mle_subset, FUN = function(e) {e$mle}, simplify = F)
+tbl_dist_estim_subset <- sapply(mle_subset, FUN = function(e) {e$dist_estim}, simplify = F) %>%
   bind_rows()
 
 ggplot(data, aes(x = s)) +
   geom_density() +
-  geom_line(aes(x = s, y = density), data = tbl_dist_estim, color = "red") +
+  geom_line(aes(x = s, y = density, color = "1"), data = tbl_dist_estim) +
+  geom_line(aes(x = s, y = density, color = "2"), data = tbl_dist_estim_subset) +
+  scale_color_discrete(name = "Estimated DFE", breaks = c("1", "2"), labels = c("DFE FGM standard","DFE FGM standard 75%")) +
+  theme(legend.position = c(1, 0), legend.justification = c(1.1, 0.15)) +
   facet_wrap(~ environment, scales = "free")
-
-#TODO Comprendre pourquoi les densités affichées c'est de la merde .
-
 ```
 
+# MLE FGM Tenaillon
+```{r MLE FGM Tenaillon (Full)}
+mle <- data %>%
+  group_by(environment) %>%
+  group_split() %>%
+  mclapply(X = .,
+           FUN = function(e) {
+             s <- e$s
+             # Starting parameters
+             initial_parameter <- c(n = 2,
+                                    lambda = 2 * abs(mean(s)) / 2,
+                                    so = 2 * max(s),
+                                    alpha = 1/2,
+                                    Q = 2)
+             # Constraints on parameters
+             consA <- rbind(c(1, 0, 0, 0, 0),
+                            c(0, 1, 0, 0, 0),
+                            c(0, 0, 1, 0, 0),
+                            c(0, 0, 0, 1, 0),
+                            c(0, 0, 0, 0, 1))
+             consB <- c(0, 0, -max(s), 0, 0)
+             # MLE
+             res <- mle_dfgm(s, model = "Tenaillon", start = initial_parameter,
+                             method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+             grid <- seq(min(s), max(s), length = 100)
+             list(mle = res,
+                  dist_estim = tibble(environment = rep(e$environment[1], length(grid)),
+                                      s = grid,
+                                      density = dfgm_tenaillon(grid,
+                                                               res$estimate[1],
+                                                               res$estimate[2],
+                                                               res$estimate[3],
+                                                               res$estimate[4],
+                                                               res$estimate[5])))
+           }, mc.cores = 7)
+
+mle_subset <- data %>%
+  group_by(environment) %>%
+  group_split() %>%
+  mclapply(X = .,
+           FUN = function(e) {
+             s <- e$s[which(e$s > quantile(e$s, 0.15))]
+             # Starting parameters
+             initial_parameter <- c(n = 2,
+                                    lambda = 2 * abs(mean(s)) / 2,
+                                    so = 2 * max(s),
+                                    alpha = 1/2,
+                                    Q = 2)
+             # Constraints on parameters
+             consA <- rbind(c(1, 0, 0, 0, 0),
+                            c(0, 1, 0, 0, 0),
+                            c(0, 0, 1, 0, 0),
+                            c(0, 0, 0, 1, 0),
+                            c(0, 0, 0, 0, 1))
+             consB <- c(0, 0, -max(s), 0, 0)
+             # MLE
+             res <- mle_dfgm(s, model = "Tenaillon", start = initial_parameter,
+                             method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+             grid <- seq(min(s), max(s), length = 100)
+             list(mle = res,
+                  dist_estim = tibble(environment = rep(e$environment[1], length(grid)),
+                                      s = grid,
+                                      density = dfgm_tenaillon(grid,
+                                                               res$estimate[1],
+                                                               res$estimate[2],
+                                                               res$estimate[3],
+                                                               res$estimate[4],
+                                                               res$estimate[5])))
+           }, mc.cores = 7)
+```
+
+```{r Figure MLE FGM Tenaillon (Full)}
+tbl_param <- sapply(mle, FUN = function(e) {e$mle}, simplify = F)
+tbl_dist_estim <- sapply(mle, FUN = function(e) {e$dist_estim}, simplify = F) %>%
+  bind_rows()
+tbl_param_subset <- sapply(mle_subset, FUN = function(e) {e$mle}, simplify = F)
+tbl_dist_estim_subset <- sapply(mle_subset, FUN = function(e) {e$dist_estim}, simplify = F) %>%
+  bind_rows()
+
+ggplot(data, aes(x = s)) +
+  geom_density() +
+  geom_line(aes(x = s, y = density, color = "1"), data = tbl_dist_estim) +
+  geom_line(aes(x = s, y = density, color = "2"), data = tbl_dist_estim_subset) +
+  scale_color_discrete(name = "Estimated DFE", breaks = c("1", "2"), labels = c("DFE FGM full","DFE FGM full 75%")) +
+  theme(legend.position = c(1, 0), legend.justification = c(1.1, 0.15)) +
+  facet_wrap(~ environment, scales = "free")
+```
