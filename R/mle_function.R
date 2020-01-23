@@ -82,7 +82,7 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
   checkmate::assert_subset(model, choices = c("Martin", "Tenaillon"), empty.ok = F,
                            add = coll)
   checkmate::assert_vector(start, strict = T, any.missing = F, min.len = 3, max.len = 5,
-               unique = T, names = "named", null.ok = F, add = coll)
+               unique = F, names = "named", null.ok = F, add = coll)
   checkmate::reportAssertions(coll)
 
   # Log-Likelihood for the model "Tenaillon"
