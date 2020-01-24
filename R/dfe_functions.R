@@ -30,19 +30,6 @@
 #'
 #'@export
 dfgm_martin <- function(s, n, lambda, so) {
-
-  #### Arguments checks ####
-  coll <- checkmate::makeAssertCollection()
-  checkmate::assert_numeric(s, finite = T, any.missing = F, null.ok = F,
-                            add = coll)
-  checkmate::assert_count(n, na.ok = F, positive = T, null.ok = F, add = coll)
-  checkmate::assert_number(lambda, na.ok = F, lower = .Machine$double.eps,
-                           finite = T, null.ok = F, add = coll)
-  checkmate::assert_number(so, na.ok = F, finite = T, null.ok = F,
-                           add = coll)
-  checkmate::reportAssertions(coll)
-
-  #### Density ####
   C <- distr::Chisq(df = n, ncp = 2 * so / lambda)
   S <- so - lambda / 2 * C
   return(distr::d(S)(s))
@@ -86,23 +73,6 @@ dfgm_martin <- function(s, n, lambda, so) {
 #'
 #'@export
 dfgm_tenaillon <- function(s, n, lambda, so, alpha, Q) {
-
-  #### Arguments checks ####
-  coll <- checkmate::makeAssertCollection()
-  checkmate::assert_numeric(s, finite = T, any.missing = F, null.ok = F,
-                            add = coll)
-  checkmate::assert_count(n, na.ok = F, positive = T, null.ok = F, add = coll)
-  checkmate::assert_number(lambda, na.ok = F, lower = .Machine$double.eps,
-                           finite = T, null.ok = F, add = coll)
-  checkmate::assert_number(so, na.ok = F, finite = T, null.ok = F,
-                           add = coll)
-  checkmate::assert_number(alpha, na.ok = F, lower = .Machine$double.eps,
-                           finite = T, null.ok = F, add = coll)
-  checkmate::assert_number(Q, na.ok = F, lower = .Machine$double.eps,
-                           finite = T, null.ok = F, add = coll)
-  checkmate::reportAssertions(coll)
-
-  #### Density ####
   # The density is 0 is s > so, however the function gsl::bessel_In produces
   # NA/Nan/Inf when used with s > so. To overcome this numerical issue we compute
   # the density only for the values of s <= so and set the density to 0 for the
@@ -121,10 +91,3 @@ dfgm_tenaillon <- function(s, n, lambda, so, alpha, Q) {
   d[idx_s_infeqso] <- d_s_infeqso
   return(d)
 }
-
-
-
-
-
-
-
