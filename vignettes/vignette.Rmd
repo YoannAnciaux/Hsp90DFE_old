@@ -1,8 +1,16 @@
 ---
-title: "vignette"
-output: rmarkdown::html_vignette
+title: "Fit of distributions of fitness effects derived from Fisher's geometric model using maximum likelihood estimation"
+output:
+  bookdown::html_document2:
+    base_format: prettydoc::html_pretty
+    theme: architect
+    fig_width: 7
+    number_sections: false
+bibliography: references.bib
+biblio-style: "apalike"
+link-citations: true
 vignette: >
-%\VignetteIndexEntry{vignette}
+  %\VignetteIndexEntry{Fit DFE FGM by MLE}
   %\VignetteEngine{knitr::rmarkdown}
   %\VignetteEncoding{UTF-8}
 ---
@@ -14,14 +22,19 @@ knitr::opts_chunk$set(
 )
 ```
   
-```{r setup}
-knitr::opts_chunk$set(warning = FALSE, message = FALSE)
-library(Hsp90DFE)
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(message = FALSE, warning = FALSE)
+#library(Hsp90DFE)
+library(devtools)
+library(maxLik)
+library(miscTools)
+load_all()
 library(tidyverse)
 library(parallel)
 ```
 
-# ```{r simulated data}
+# Data
+```{r simulated data, eval=FALSE, include=FALSE}
 # nenv <- 8
 # lambda <- rexp(nenv, 5)
 # parameters_sim <- data.frame(nsample = rep(2000, nenv),
@@ -37,23 +50,49 @@ library(parallel)
 #                                 function(e) as.vector(do.call("rfgm", as.list(e))))) %>%
 #   pivot_longer(everything(), names_to = "environment", values_to = "s")
 # data <- simulations
-# ```
+```
 
-```{r}
+```{r include=FALSE}
 data("summary_data")
 data <- summary_data %>%
   unite(col = "environment", c("Environment", "Expression_level")) %>%
   rename(s = mean_s, sd = mean_sd)
 ```
 
-
-```{r data representation}
+```{r data-plot, fig.cap = "Distribution of mutation effects on fitness measured in each environment.", echo = F}
 ggplot(data, aes(x = s, color = environment)) +
   geom_density() +
   xlab("selection coefficient")
 ```
-# MLE FGM Martin
-```{r MLE FGM Martin (Standard)}
+
+# Distribution of fitness effects (DFE)
+
+The probability density function (pdf) of the DFE in the "standard" isotropic FGM from @martinFitnessEffectMutations2015, is fully determined by ($n$, $\lambda$, $s_0$) and has the following stochastic representation and pdf :
+
+\begin{equation}
+  \begin{array}{c}
+    {S \sim s_{0}-\frac{\lambda}{2} \chi_{n}^{2}\left(\frac{2 s_{0}}{\lambda}\right)} \\
+    {f_{S}\left(s, n, \lambda, s_{0}\right)=\frac{2}{\lambda} f_{\chi_{n}^{2}}\left(\frac{2\left(s_{0}-s\right)}{\lambda}, \frac{2 s_{0}}{\lambda}\right)}
+  \end{array} (\#eq:DFE-FGM-Martin)
+\end{equation}
+
+With $n$ the dimensionality, i.e. the number of phenotypic dimensions (traits) under selection, $\lambda$ the mutational variance per trait among random mutations scaled by the strength of selection (scales the mean fitness effect of mutations) and $s_0$ the fitness distance between the wild type and the optimum of the environment.
+
+If we consider a more general fitness function for the FGM (still assuming isotropy) as in [@tenaillonQuantifyingOrganismalComplexity2007], which takes the form $s(d) = - \alpha d^Q$ (in the standard model above $\alpha = 1/2$ and $Q = 2$), the DFE has the following pdf [@tenaillonUtilityFisherGeometric2014]:
+\begin{equation}
+f(s)=\frac{e^{-\frac{\left(\frac{s_{0}-s}{\alpha}\right)^{2/Q}+\left(\frac{s_{0}}{a}\right)^{2/Q}}{2 \lambda^2}}}{\alpha Q \lambda^{2}}\left(\frac{s_{0}-s}{\alpha}\right)^{\frac{\frac{n}{2}+1-Q}{Q}}\left(\frac{s_{0}}{\alpha}\right)^{\left(1-\frac{n}{2}\right) / Q} I_{\frac{n}{2}-1}\left(\frac{1}{\lambda^2}\left(\frac{s_{0}-s}{\alpha}\right)^{1/Q}\left(\frac{s_{0}}{\alpha}\right)^{1/Q}\right) (\#eq:DFE-FGM-Tenaillon)
+\end{equation}
+
+With $\alpha$ and $Q$ robustness and epistasis parameter influencing the decay rate and the curvature of the fitness function described above.
+
+# Fit of the DFE using maximum likelihood estimation (MLE)
+
+In each environment, the average of the selection coefficients of the three replicates, for each combination of position and amino acid (see figure \@ref(fig:data-plot)
+), was fitted against either the standard [@martinFitnessEffectMutations2015] (eq. \@ref(eq:DFE-FGM-Martin)) or the full [@tenaillonUtilityFisherGeometric2014] (eq. \@ref(eq:DFE-FGM-Tenaillon)) FGM described above. The fit was performed by maximum likelihood estimation using the R package *maxLik* [@toometMaxLikMaximumLikelihood2020] with the "Nelder-Mead" [@nelderSimplexMethodFunction1965] optimization method. In figures \@ref(fig:mle-fgm-martin-plot) and \@ref(fig:mle-fgm-tenaillon-plot) are shown the results of the fit for the standard and the full model.
+
+In both figures both the fit on all the combinations of positions and amino acids (in red) and the fit on the upper 85% of the distribution (in blue) are shown. The likelihood obtained from the maximisation on the complete and the truncated data cannot be compared directly but we can see in both figures that the fit on the truncated data is visually better. Indeed, all the distributions show a heavy tail for strongly deleterious mutation which is not expected in the FGM. The comparison between the fit of the standard model and the full model shows similar results.
+
+```{r MLE FGM Martin (Standard), include=FALSE}
 mle <- data %>%
   group_by(environment) %>%
   group_split() %>%
@@ -105,7 +144,9 @@ mle_subset <- data %>%
            }, mc.cores = 7)
 ```
 
-```{r Figure MLE FGM Martin (Standard)}
+(ref:mle-fgm-martin-caption) **MLE for standard FGM**. Fit of the standard model \@ref(eq:DFE-FGM-Martin) using maximum likelihood estimation for each environment.
+
+```{r mle-fgm-martin-plot, fig.cap = '(ref:mle-fgm-martin-caption)', fig.asp = 1, echo = F}
 tbl_param <- sapply(mle, FUN = function(e) {e$mle}, simplify = F)
 tbl_dist_estim <- sapply(mle, FUN = function(e) {e$dist_estim}, simplify = F) %>%
   bind_rows()
@@ -117,13 +158,45 @@ ggplot(data, aes(x = s)) +
   geom_density() +
   geom_line(aes(x = s, y = density, color = "1"), data = tbl_dist_estim) +
   geom_line(aes(x = s, y = density, color = "2"), data = tbl_dist_estim_subset) +
-  scale_color_discrete(name = "Estimated DFE", breaks = c("1", "2"), labels = c("DFE FGM standard","DFE FGM standard 75%")) +
+  scale_color_discrete(name = "Estimated DFE", breaks = c("1", "2"), labels = c("DFE FGM standard","DFE FGM standard 85%")) +
   theme(legend.position = c(1, 0), legend.justification = c(1.1, 0.15)) +
+  xlab("selection coefficients") +
   facet_wrap(~ environment, scales = "free")
 ```
 
-# MLE FGM Tenaillon
-```{r MLE FGM Tenaillon (Full)}
+```{r MLE FGM Tenaillon (Full), include=FALSE}
+mle <- data %>%
+  group_by(environment) %>%
+  group_split()
+
+s <- mle[[1]]$s
+# Starting parameters
+initial_parameter <- c(n = 2,
+                       lambda = 2 * abs(mean(s)) / 2,
+                       so = 2 * max(s),
+                       alpha = 1/2,
+                       Q = 2)
+# Constraints on parameters
+consA <- rbind(c(1, 0, 0, 0, 0),
+               c(0, 1, 0, 0, 0),
+               c(0, 0, 1, 0, 0),
+               c(0, 0, 0, 1, 0),
+               c(0, 0, 0, 0, 1))
+consB <- c(0, 0, -max(s), 0, 0)
+# MLE
+res <- mle_dfgm(s, model = "Tenaillon", start = initial_parameter,
+                method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+grid <- seq(min(s), max(s), length = 100)
+res <- list(mle = res,
+            dist_estim = tibble(environment = rep(mle[[1]]$environment[1], length(grid)),
+                                s = grid,
+                                density = dfgm_tenaillon(grid,
+                                                         res$estimate[1],
+                                                         res$estimate[2],
+                                                         res$estimate[3],
+                                                         res$estimate[4],
+                                                         res$estimate[5])))
+
 mle <- data %>%
   group_by(environment) %>%
   group_split() %>%
@@ -193,7 +266,9 @@ mle_subset <- data %>%
            }, mc.cores = 7)
 ```
 
-```{r Figure MLE FGM Tenaillon (Full)}
+(ref:mle-fgm-tenaillon-caption) **MLE for standard FGM**. Fit of the standard model \@ref(eq:DFE-FGM-Tenaillon) using maximum likelihood estimation for each environment.
+
+```{r mle-fgm-tenaillon-plot, fig.cap = '(ref:mle-fgm-martin-caption)', fig.asp = 1, echo = F}
 tbl_param <- sapply(mle, FUN = function(e) {e$mle}, simplify = F)
 tbl_dist_estim <- sapply(mle, FUN = function(e) {e$dist_estim}, simplify = F) %>%
   bind_rows()
@@ -205,7 +280,10 @@ ggplot(data, aes(x = s)) +
   geom_density() +
   geom_line(aes(x = s, y = density, color = "1"), data = tbl_dist_estim) +
   geom_line(aes(x = s, y = density, color = "2"), data = tbl_dist_estim_subset) +
-  scale_color_discrete(name = "Estimated DFE", breaks = c("1", "2"), labels = c("DFE FGM full","DFE FGM full 75%")) +
+  scale_color_discrete(name = "Estimated DFE", breaks = c("1", "2"), labels = c("DFE FGM full","DFE FGM full 5%")) +
   theme(legend.position = c(1, 0), legend.justification = c(1.1, 0.15)) +
+  xlab("selection coefficients") +
   facet_wrap(~ environment, scales = "free")
 ```
+
+`r if (knitr::is_html_output()) '# References {-}'`
