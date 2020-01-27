@@ -23,11 +23,11 @@ comment = "#>"
 
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(message = FALSE, warning = FALSE)
-#library(Hsp90DFE)
-library(devtools)
-library(maxLik)
-library(miscTools)
-load_all()
+library(Hsp90DFE)
+# library(devtools)
+# library(maxLik)
+# library(miscTools)
+# load_all()
 library(tidyverse)
 library(parallel)
 ```
