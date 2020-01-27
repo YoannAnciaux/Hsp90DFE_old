@@ -2,10 +2,8 @@ Package: Hsp90DFE
 Type: Package
 Title: Compendium for MLE of DFE from FGM in Hsp90
 Version: 0.0.0.9000
-Author@R: person("Yoann", "Anciaux", email = "yoann.anciaux@birc.au.dk",
-  role = c("aut", "cre"))
-Maintainer@R: person("Yoann", "Anciaux", email = "yoann.anciaux@birc.au.dk",
-  role = c("aut", "cre"))
+Authors@R:
+    person("Yoann", "Anciaux", email = "anciaux.yoann@gmail.com", role = c("aut", "cre"))
 Description: Compendium of the results for the inference of DFE from FGM on single
     mutations data in Hsp90.
 License: MIT + file LICENSE
@@ -19,3 +17,13 @@ Suggests:
     bookdown
 RoxygenNote: 7.0.0
 VignetteBuilder: knitr
+Imports: 
+    MASS,
+    dplyr,
+    tibble,
+    stats,
+    checkmate,
+    distr,
+    maxLik,
+    gsl
+

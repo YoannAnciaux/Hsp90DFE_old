@@ -46,8 +46,8 @@ consB <- c(0, 0, -max(s))
 mle <- mle_dfgm(s, model = "Martin", start = initial_parameter,
                 method = "NM", constraints = list(ineqA = consA, ineqB = consB))
 
-CI <- estim_CI(mle, bonf = F)
-CI_simultaneous <- estim_CI(mle, bonf = T)
+CI <- estim_CI(mle, bonf = FALSE)
+CI_simultaneous <- estim_CI(mle, bonf = TRUE)
 
 }
 \seealso{
