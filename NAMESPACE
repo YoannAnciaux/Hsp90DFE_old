@@ -2,5 +2,6 @@
 
 export(dfgm_martin)
 export(dfgm_tenaillon)
+export(estim_CI)
 export(mle_dfgm)
 export(rfgm)
