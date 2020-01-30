@@ -82,7 +82,7 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
   checkmate::assert_subset(model, choices = c("Martin", "Tenaillon"), empty.ok = F,
                            add = coll)
   checkmate::assert_vector(start, strict = T, any.missing = F, min.len = 3, max.len = 5,
-               unique = F, names = "named", null.ok = F, add = coll)
+                           unique = F, names = "named", null.ok = F, add = coll)
   checkmate::reportAssertions(coll)
 
   # Log-Likelihood for the model "Tenaillon"
@@ -93,7 +93,12 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
       n <- param[1]
       lambda <- param[2]
       so <- param[3]
-      ll <- sum(log(dfgm_martin(s, n, lambda, so)))
+      if(n > 0 & lambda > 0 & so > 0) {
+        ll <- sum(log(dfgm_martin(s, n, lambda, so)))
+      } else {
+        ll <- NA
+      }
+      return(ll)
     }
   }
   # Log-Likelihood for the model "Tenaillon"
@@ -106,12 +111,29 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
       so <- param[3]
       alpha <- param[4]
       Q <- param[5]
-      ll <- sum(log(dfgm_tenaillon(s, n, lambda, so, alpha, Q)))
+      if(n > 0 & lambda > 0 & so > 0 & alpha > 0 & Q > 0) {
+        ll <- sum(log(dfgm_tenaillon(s, n, lambda, so, alpha, Q)))
+      } else {
+        ll <- NA
+      }
+      return(ll)
     }
   }
 
   # MLE
-  maxLik::maxLik(loglik, start = start, method = method, ...)
+  tryCatch(maxLik::maxLik(loglik, start = start, method = method, ...),
+           error = function(e) {
+             est_tmp <- rep(NA, length(start))
+             names(est_tmp) <- names(start)
+             list(estimate = est_tmp,
+                  maximum = NA,
+                  hessian = matrix(NA,
+                                   ncol = length(start),
+                                   nrow = length(start),
+                                   dimnames = list(names(start),
+                                                   names(start))),
+                  code = e)
+           })
 }
 
 #' Random generation of selection coefficient under FGM
