@@ -4,6 +4,10 @@
 #' different form of the FGM.
 #'
 #' @inheritParams dfgm_martin
+#' @param sd_error Vector of real numbers. Standard deviation for the normal
+#' distribution of the measurement error for each value of \code{s}. It can be
+#' either NULL (default) in which case the loglikelihood does not account for
+#' measurement error. Or it can be a vector of real number the same size as \code{s}.
 #' @param model String. "Martin" performs the mle on the density of the DFE from
 #' Martin & Lenormand (2015) (see \code{\link{dfgm_martin}}). "Tenaillon" performs
 #' the mle on the density of the DFE from Tenaillon (2014) (see \code{\link{dfgm_tenaillon}}).
@@ -41,6 +45,10 @@
 #' # MLE
 #' res <- mle_dfgm(s, model = "Martin", start = initial_parameter,
 #'                 method = "NM", constraints = list(ineqA = consA, ineqB = consB))
+#' # MLE with measurement error
+#' s_with_error <- s + rnorm(length(s), mean = 0, sd = 0.1)
+#' res <- mle_dfgm(s_with_error, sd_error = rep(0.1, length(s)), model = "Martin", start = initial_parameter,
+#'                 method = "NM", constraints = list(ineqA = consA, ineqB = consB))
 #'
 #' #### model : "Tenaillon" ####
 #' # Parameters
@@ -75,10 +83,11 @@
 #'  }
 #'
 #' @export
-mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
+mle_dfgm <- function(s, sd_error = NULL, model = "Martin", start, method = "NM", ...){
 
   coll <- checkmate::makeAssertCollection()
   checkmate::assert_numeric(s, finite = T, any.missing = F, null.ok = F, add = coll)
+  checkmate::assert_numeric(sd_error, finite = T, any.missing = F, null.ok = T, add = coll)
   checkmate::assert_subset(model, choices = c("Martin", "Tenaillon"), empty.ok = F,
                            add = coll)
   checkmate::assert_vector(start, strict = T, any.missing = F, min.len = 3, max.len = 5,
@@ -89,16 +98,38 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
   if (model == "Martin") {
     checkmate::assert_names(names(start), permutation.of = c("n", "lambda", "so"))
     start <- start[c("n", "lambda", "so")]
-    loglik <- function(param) {
-      n <- param[1]
-      lambda <- param[2]
-      so <- param[3]
-      if(n > 0 & lambda > 0 & so > 0) {
-        ll <- sum(log(dfgm_martin(s, n, lambda, so)))
-      } else {
-        ll <- NA
+
+    if (is.null(sd_error)) { #loglikelihood without normal measurement error
+      loglik <- function(param) {
+        n <- param[1]
+        lambda <- param[2]
+        so <- param[3]
+        if(n > 0 & lambda > 0 & so > 0) {
+          ll <- sum(log(dfgm_martin(s, n, lambda, so)))
+        } else {
+          ll <- NA
+        }
+        return(ll)
       }
-      return(ll)
+    } else { #loglikelihood with normal measurement error
+      loglik <- function(param) {
+        cat("lool")
+        n <- param[1]
+        lambda <- param[2]
+        so <- param[3]
+        if(n > 0 & lambda > 0 & so > 0) {
+          ll <- sum(
+            log(
+              p1 * dfgm_martin(s, n, lambda, so) +
+                p2 * (dfgm_martin(s - sd_error, n, lambda, so) + dfgm_martin(s + sd_error, n, lambda, so)) +
+                p3 * (dfgm_martin(s - 2 * sd_error, n, lambda, so) + dfgm_martin(s + 2 * sd_error, n, lambda, so))
+            )
+          )
+        } else {
+          ll <- NA
+        }
+        return(ll)
+      }
     }
   }
   # Log-Likelihood for the model "Tenaillon"
@@ -117,6 +148,42 @@ mle_dfgm <- function(s, model = "Martin", start, method = "NM", ...){
         ll <- NA
       }
       return(ll)
+    }
+
+    if (is.null(sd_error)) { #loglikelihood without normal measurement error
+      loglik <- function(param) {
+        n <- param[1]
+        lambda <- param[2]
+        so <- param[3]
+        alpha <- param[4]
+        Q <- param[5]
+        if(n > 0 & lambda > 0 & so > 0 & alpha > 0 & Q > 0) {
+          ll <- sum(log(dfgm_tenaillon(s, n, lambda, so, alpha, Q)))
+        } else {
+          ll <- NA
+        }
+        return(ll)
+      }
+    } else { #loglikelihood with normal measurement error
+      loglik <- function(param) {
+        n <- param[1]
+        lambda <- param[2]
+        so <- param[3]
+        alpha <- param[4]
+        Q <- param[5]
+        if(n > 0 & lambda > 0 & so > 0 & alpha > 0 & Q > 0) {
+          ll <- sum(
+            log(
+              p1 * dfgm_martin(s, n, lambda, so) +
+                p2 * (dfgm_martin(s - sd_error, n, lambda, so) + dfgm_martin(s + sd_error, n, lambda, so)) +
+                p3 * (dfgm_martin(s - 2 * sd_error, n, lambda, so) + dfgm_martin(s + 2 * sd_error, n, lambda, so))
+            )
+          )
+        } else {
+          ll <- NA
+        }
+        return(ll)
+      }
     }
   }
 
